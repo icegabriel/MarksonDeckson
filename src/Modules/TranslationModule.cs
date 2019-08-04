@@ -8,6 +8,7 @@ namespace MarksonDeckson.Modules
     public class TranslationModule : ModuleBase<SocketCommandContext>
     {
         private readonly TranslationService _translationService;
+        
 
         public TranslationModule(TranslationService translationService)
         {
@@ -23,7 +24,7 @@ namespace MarksonDeckson.Modules
             for (int i = 1; i < param.Length; i++)
                 text = text + $"{param[i]} ";
 
-            var result = await _translationService.TranlateAsync("en", param[0], text);
+            var result = await _translationService.TranlateAsync("pt", param[0], text);
 
             await Context.Channel.SendMessageAsync(result);
         }

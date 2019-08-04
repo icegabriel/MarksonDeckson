@@ -1,5 +1,7 @@
-﻿using System;
+﻿using MarksonDeckson.Utils;
+using System;
 using System.Net.Http;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -13,24 +15,53 @@ namespace MarksonDeckson.Services
             var builder = new UriBuilder(TRANSLATOR_BASE_URI);
             builder.Query = $"hl=pt&sl={langCode}&tl={targetLagCode}&ie=UTF-8&prev=_m&q={text}";
 
-            using (var client = new HttpClient())
+            try
             {
-                var request = await client.GetAsync(builder.Uri);
+                var result = await GetTraslation(builder.Uri);
 
-                if (request.IsSuccessStatusCode)
+                return result;
+            }
+            catch (Exception e)
+            {
+                ExceptionLog.Write(e);
+
+                return "ERROR: Could not translate text try again later !!!";
+            }
+        }
+
+        private async Task<string> GetTraslation(Uri uri)
+        {
+            using (var client = new HttpClient())
+            using (var request = new HttpRequestMessage())
+            {
+                request.RequestUri = uri;
+                request.Method = HttpMethod.Get;
+                request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:69.0) Gecko/20100101 Firefox/69.0");
+                request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+                request.Headers.Host = "translate.google.com";
+
+                var result = await client.SendAsync(request);
+
+                var html = await result.Content.ReadAsStringAsync();
+                var code = "(?<=(<div dir=\"ltr\" class=\"t0\">)).*?(?=(<\\/div>))";
+
+                var rx = new Regex(code, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+                var match = rx.Match(html);
+
+                if (!match.Success)
                 {
-                    var result = await request.Content.ReadAsStringAsync();
-                    var code = "(?<=(<div dir=\"ltr\" class=\"t0\">)).*?(?=(<\\/div>))";
+                    code = "(?<=(<div dir=\"rtl\" class=\"t0\">)).*?(?=(<\\/div>))";
 
-                    var rx = new Regex(code, RegexOptions.Compiled | RegexOptions.IgnoreCase);
-                    var match = rx.Match(result);
-
-                    return match.Value;
+                    rx = new Regex(code, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+                    match = rx.Match(html);
                 }
-                else
+
+                if (result.IsSuccessStatusCode)
                 {
-                    return "ERROR: Could not translate text try again later !!!";
+                    return System.Net.WebUtility.HtmlDecode(match.Value);
                 }
+
+                return "ERROR: Could not translate text try again later !!!";
             }
         }
     }
