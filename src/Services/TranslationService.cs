@@ -1,7 +1,6 @@
 ﻿using MarksonDeckson.Utils;
 using System;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -56,7 +55,7 @@ namespace MarksonDeckson.Services
                     match = rx.Match(html);
                 }
 
-                if (result.IsSuccessStatusCode)
+                if (result.IsSuccessStatusCode && match.Success)
                 {
                     return System.Net.WebUtility.HtmlDecode(match.Value);
                 }
