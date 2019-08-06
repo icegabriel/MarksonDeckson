@@ -90,6 +90,7 @@ namespace MarksonDeckson
             var map = new ServiceCollection();
 
             map.AddSingleton(new TranslationService());
+            map.AddSingleton(new AudioService());
 
             return map.BuildServiceProvider();
         }

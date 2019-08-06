@@ -1,4 +1,5 @@
-﻿using MarksonDeckson.Utils;
+﻿using Discord.WebSocket;
+using MarksonDeckson.Exceptions;
 using System;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -8,7 +9,8 @@ namespace MarksonDeckson.Services
 {
     public class TranslationService
     {
-        const string TRANSLATOR_BASE_URI = "https://translate.google.com/m";
+        private const string TRANSLATOR_BASE_URI = "https://translate.google.com/m";
+
         public async Task<string> TranlateAsync(string langCode, string targetLagCode, string text)
         {
             var builder = new UriBuilder(TRANSLATOR_BASE_URI);
@@ -20,11 +22,13 @@ namespace MarksonDeckson.Services
 
                 return result;
             }
-            catch (Exception e)
+            catch (TranslationException e)
             {
-                ExceptionLog.Write(e);
-
-                return "ERROR: Could not translate text try again later !!!";
+                return e.Message;
+            }
+            catch(Exception e)
+            {
+                return e.Message;
             }
         }
 
@@ -60,7 +64,7 @@ namespace MarksonDeckson.Services
                     return System.Net.WebUtility.HtmlDecode(match.Value);
                 }
 
-                return "ERROR: Could not translate text try again later !!!";
+                throw new TranslationException("ERROR: Could not translate text try again later !!!");
             }
         }
     }
