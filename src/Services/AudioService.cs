@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Audio;
+using Discord.WebSocket;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -21,18 +22,32 @@ namespace MarksonDeckson.Services
             _tempDir = Directory.GetCurrentDirectory() + "\\tmp";
         }
 
-        public async Task TextToSpeech(string lang, string text, IVoiceChannel target)
+        public async Task TextToSpeech(string lang, string text, IVoiceChannel target, ISocketMessageChannel channel)
         {
             var builder = new UriBuilder(TTS_BASE_URI);
-            builder.Query = $"ie=UTF-8&q={text}&tl={lang}&client=gtx&ttsspeed=1&ttsspeed=1";
+            var formatedText = Uri.EscapeDataString(text);
 
-            using (var stream = await GetSpeechStream(builder.Uri))
+            builder.Query = $"ie=UTF-8&q={formatedText}&tl={lang}&client=gtx&ttsspeed=1";
+
+            try
             {
-                var fileName = await SaveStream(stream);
+                using (var stream = await GetSpeechStream(builder.Uri))
+                {
+                    var fileName = await SaveStream(stream);
 
-                _audioClient = await target.ConnectAsync();
+                    _audioClient = await target.ConnectAsync();
 
-                await SendAsync(_audioClient, fileName);
+                    if (_audioClient != null)
+                    {
+                        await SendAsync(_audioClient, fileName);
+                    }
+                    else
+                        await channel.SendMessageAsync(":x:User must be in a voice channel, or a voice channel must be passed as an argument.");
+                }
+            }
+            catch (Exception e)
+            {
+                await channel.SendMessageAsync(e.Message);
             }
         }
 
@@ -71,7 +86,7 @@ namespace MarksonDeckson.Services
                 }
                 else
                 {
-                    throw new Exception("Could not get connection with text reader, try again later!!");
+                    throw new Exception(":x:Could not get connection with text reader, try again later!!");
                 }
             }
         }
@@ -104,6 +119,16 @@ namespace MarksonDeckson.Services
                 }
                 finally { await discord.FlushAsync(); }
             }
+        }
+
+        public string GetTextParam(string[] param, int indice)
+        {
+            var text = "";
+
+            for (int i = indice; i < param.Length; i++)
+                text = text + $"{param[i]} ";
+
+            return text;
         }
     }
 }

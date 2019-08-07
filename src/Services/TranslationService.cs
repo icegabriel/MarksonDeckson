@@ -14,7 +14,9 @@ namespace MarksonDeckson.Services
         public async Task<string> TranlateAsync(string langCode, string targetLagCode, string text)
         {
             var builder = new UriBuilder(TRANSLATOR_BASE_URI);
-            builder.Query = $"hl=pt&sl={langCode}&tl={targetLagCode}&ie=UTF-8&prev=_m&q={text}";
+            var formatedText = Uri.EscapeDataString(text);
+
+            builder.Query = $"hl=pt&sl={langCode}&tl={targetLagCode}&ie=UTF-8&prev=_m&q={formatedText}";
 
             try
             {
@@ -64,7 +66,7 @@ namespace MarksonDeckson.Services
                     return System.Net.WebUtility.HtmlDecode(match.Value);
                 }
 
-                throw new TranslationException("ERROR: Could not translate text try again later !!!");
+                throw new TranslationException(":x:ERROR: Could not translate text try again later !!!");
             }
         }
     }

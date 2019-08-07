@@ -25,7 +25,7 @@ namespace MarksonDeckson.Modules
         public async Task Translate([Remainder] [Summary("Target language code and text to translate.")] string input)
         {
             var param = input.Split(' ');
-            var text = GetTextParam(param, 1);
+            var text = _audioService.GetTextParam(param, 1);
 
             var result = await _translationService.TranlateAsync(LANG_DEFAULT, param[0], text);
 
@@ -37,7 +37,7 @@ namespace MarksonDeckson.Modules
         public async Task TranslateTo([Remainder] [Summary("Default and Target language code and text to translate.")] string input)
         {
             var param = input.Split(' ');
-            var text = GetTextParam(param, 2);
+            var text = _audioService.GetTextParam(param, 2);
 
             var result = await _translationService.TranlateAsync(param[0], param[1], text);
 
@@ -49,23 +49,27 @@ namespace MarksonDeckson.Modules
         public async Task TranslateVoice([Remainder] [Summary("Target language code and text to translate.")] string input)
         {
             var param = input.Split(' ');
-            var text = GetTextParam(param, 1);
+            var text = _audioService.GetTextParam(param, 1);
 
             var result = await _translationService.TranlateAsync(LANG_DEFAULT, param[0], text);
 
             await Context.Channel.SendMessageAsync(":fast_forward:Playing: " + result);
 
-            await _audioService.TextToSpeech(param[0], result, (Context.User as IVoiceState).VoiceChannel);
+            await _audioService.TextToSpeech(param[0], result, (Context.User as IVoiceState).VoiceChannel, Context.Channel);
         }
 
-        public string GetTextParam(string[] param, int indice)
+        [Command("translatetoplay", RunMode = RunMode.Async)]
+        [Summary("Translate message from selected language to other language and read the text.")]
+        public async Task TranslateToPlay([Remainder] [Summary("Default and Target language code and text to translate.")] string input)
         {
-            var text = "";
+            var param = input.Split(' ');
+            var text = _audioService.GetTextParam(param, 2);
 
-            for (int i = indice; i < param.Length; i++)
-                text = text + $"{param[i]} ";
+            var result = await _translationService.TranlateAsync(param[0], param[1], text);
 
-            return text;
+            await Context.Channel.SendMessageAsync(":fast_forward:Playing: " + result);
+
+            await _audioService.TextToSpeech(param[1], result, (Context.User as IVoiceState).VoiceChannel, Context.Channel);
         }
     }
 }
