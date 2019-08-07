@@ -2,56 +2,41 @@
 using Discord.Audio;
 using Discord.WebSocket;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace MarksonDeckson.Services
 {
-    public class AudioService
+    partial class AudioService
     {
-        private const string TTS_BASE_URI = "https://translate.google.com/translate_tts";
-
         private readonly string _tempDir;
 
         private IAudioClient _audioClient;
+        private ISocketMessageChannel _channel;
+
+        private List<AudioOutStream> PlayList { get; set; }
 
         public AudioService()
         {
             _tempDir = Directory.GetCurrentDirectory() + "\\tmp";
+            PlayList = new List<AudioOutStream>();
         }
 
-        public async Task TextToSpeech(string lang, string text, IVoiceChannel target, ISocketMessageChannel channel)
+        private async Task Join(IVoiceChannel target)
         {
-            var builder = new UriBuilder(TTS_BASE_URI);
-            var formatedText = Uri.EscapeDataString(text);
-
-            builder.Query = $"ie=UTF-8&q={formatedText}&tl={lang}&client=gtx&ttsspeed=1";
-
             try
             {
-                using (var stream = await GetSpeechStream(builder.Uri))
-                {
-                    var fileName = await SaveStream(stream);
-
-                    _audioClient = await target.ConnectAsync();
-
-                    if (_audioClient != null)
-                    {
-                        await SendAsync(_audioClient, fileName);
-                    }
-                    else
-                        await channel.SendMessageAsync(":x:User must be in a voice channel, or a voice channel must be passed as an argument.");
-                }
+                _audioClient = await target.ConnectAsync();
             }
-            catch (Exception e)
+            catch (NullReferenceException)
             {
-                await channel.SendMessageAsync(e.Message);
+                await _channel.SendMessageAsync(":x:User must be in a voice channel, or a voice channel must be passed as an argument.");
             }
         }
 
-        private async Task<string> SaveStream(Stream stream)
+        private async Task<string> SaveStreamMp3(Stream stream)
         {
             var fileName = $"{stream.GetHashCode()}.mp3";
 
@@ -65,33 +50,7 @@ namespace MarksonDeckson.Services
             }
         }
 
-        private async Task<Stream> GetSpeechStream(Uri uri)
-        {
-            using (var client = new HttpClient())
-            using (var request = new HttpRequestMessage())
-            {
-                request.RequestUri = uri;
-                request.Method = HttpMethod.Get;
-                request.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:69.0) Gecko/20100101 Firefox/69.0");
-                request.Headers.Add("Accept", "audio/mpeg");
-                request.Headers.Host = "translate.google.com";
-
-                var result = await client.SendAsync(request);
-
-                if (result.IsSuccessStatusCode)
-                {
-                    var stream = await result.Content.ReadAsStreamAsync();
-
-                    return stream;
-                }
-                else
-                {
-                    throw new Exception(":x:Could not get connection with text reader, try again later!!");
-                }
-            }
-        }
-
-        private Process CreateStream(string path)
+        private Process CreateLocalDiscordStream(string path)
         {
             return Process.Start(new ProcessStartInfo
             {
@@ -102,13 +61,13 @@ namespace MarksonDeckson.Services
             });
         }
 
-        private async Task SendAsync(IAudioClient client, string fileName)
+        private async Task PlayLocalDiscordStream(string fileName)
         {
             var path = _tempDir + $"\\{fileName}";
 
-            using (var ffmpeg = CreateStream(path))
+            using (var ffmpeg = CreateLocalDiscordStream(path))
             using (var output = ffmpeg.StandardOutput.BaseStream)
-            using (var discord = client.CreatePCMStream(AudioApplication.Mixed))
+            using (var discord = _audioClient.CreatePCMStream(AudioApplication.Mixed))
             {
                 try
                 {
@@ -117,7 +76,11 @@ namespace MarksonDeckson.Services
                     output.Dispose();
                     File.Delete(path);
                 }
-                finally { await discord.FlushAsync(); }
+                finally
+                {
+                    await discord.FlushAsync();
+                    await _channel.SendMessageAsync("Finish");
+                }
             }
         }
 
