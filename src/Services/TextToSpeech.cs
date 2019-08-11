@@ -1,13 +1,15 @@
 ﻿using Discord;
+using Discord.Audio;
 using Discord.WebSocket;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace MarksonDeckson.Services
 {
-    partial class AudioService
+    public partial class AudioService
     {
         private const string TTS_BASE_URI = "https://translate.google.com/translate_tts";
 
@@ -15,32 +17,31 @@ namespace MarksonDeckson.Services
         {
             var builder = new UriBuilder(TTS_BASE_URI);
             var formatedText = Uri.EscapeDataString(text);
-
             builder.Query = $"ie=UTF-8&q={formatedText}&tl={lang}&client=gtx&ttsspeed=1";
 
+            var stream = await GetWebSpeechStream(builder.Uri);
+
             _channel = channel;
+            _voiceChannel = target;
 
             try
             {
-                using (var stream = await GetSpeechStream(builder.Uri))
-                {
-                    var fileName = await SaveStreamMp3(stream);
+                await SaveStreamMp3(stream);
 
-                    await Join(target);
-
-                    if (_audioClient != null)
-                    {
-                        await PlayLocalDiscordStream(fileName);
-                    }
-                }
+                AddSpeechToPlaylist(text);
+                await PlayPlayList();
             }
             catch (Exception e)
             {
                 await channel.SendMessageAsync(e.ToString());
             }
+            finally
+            {
+                stream.Dispose();
+            }
         }
 
-        private async Task<Stream> GetSpeechStream(Uri uri)
+        private async Task<Stream> GetWebSpeechStream(Uri uri)
         {
             using (var client = new HttpClient())
             using (var request = new HttpRequestMessage())
@@ -64,6 +65,13 @@ namespace MarksonDeckson.Services
                     throw new Exception(":x:Could not get connection with text reader, try again later!!");
                 }
             }
+        }
+
+        private void AddSpeechToPlaylist(string text)
+        {
+            var output = CreateLocalDiscordStream(_fileDir);
+
+            PlayList.Add(output);
         }
     }
 }
